@@ -1,2 +1,3 @@
-# kernel_manifest_OnePlus_SUltraukisu_Ultra
-本地编译OnePlusOSS一加内核
+# how to build
+cd kernel_manifest
+chmod +x build.sh && ./build.sh
