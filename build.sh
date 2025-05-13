@@ -208,4 +208,4 @@ echo ">>> 打包文件: $ZIP_NAME"
 zip -r "../$ZIP_NAME" ./*
 
 ZIP_PATH="$(realpath "../$ZIP_NAME")"
-echo ">>> 打包完成: $ZIP_PATH"
+echo ">>> 打包完成 文件所在目录: $ZIP_PATH"
