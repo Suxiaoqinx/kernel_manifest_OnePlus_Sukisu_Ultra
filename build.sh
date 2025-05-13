@@ -30,6 +30,11 @@ echo "使用 patch_linux: $USE_PATCH_LINUX"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
 echo "==================="
 
+# ===== 初始化工作目录 =====
+WORKDIR="$HOME/kernel_workspace"
+mkdir -p "$WORKDIR"
+cd "$WORKDIR"
+
 # ===== 安装依赖 =====
 echo ">>> 正在安装构建依赖..."
 sudo apt-get update
@@ -46,7 +51,7 @@ echo ">>> 正在初始化仓库..."
 repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${SOC_BRANCH} -m ${MANIFEST_FILE} --depth=1
 repo sync -j16 --fail-fast
 
-cd ./kernel_platform
+cd "$WORKDIR/kernel_platform"
 
 # ===== 清除 abi 文件、去除 -dirty 后缀 =====
 echo ">>> 正在清除 ABI 文件及去除 dirty 后缀..."
