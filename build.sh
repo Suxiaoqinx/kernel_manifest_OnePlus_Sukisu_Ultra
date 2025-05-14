@@ -49,7 +49,7 @@ sudo apt-get install -y git curl zip perl make gcc python3
 # ===== 下载 repo 工具到脚本目录 =====
 echo ">>> 下载 repo 工具到当前目录..."
 cd "$SCRIPT_DIR"
-curl -LSs -o repo https://storage.googleapis.com/git-repo-downloads/repo
+curl --tlsv1.2 -LSs -o repo https://storage.googleapis.com/git-repo-downloads/repo
 chmod +x repo
 echo ">>> repo 安装完成: $SCRIPT_DIR/repo"
 echo
@@ -117,9 +117,10 @@ if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   cp ./SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./common/
   cd "$WORKDIR/kernel_platform/common"
   patch -p1 -F 3 < lz4kd.patch || true
-  cd "$WORKDIR"
+  cd "$WORKDIR/kernel_platform"
 else
   echo ">>> 跳过 LZ4KD 补丁应用"
+  cd "$WORKDIR/kernel_platform"
 fi
 
 # ===== 添加 defconfig 配置项 =====
