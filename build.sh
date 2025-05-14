@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# ===== 获取脚本目录 =====
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # ===== 设置自定义参数 =====
 echo ">>> 读取用户配置..."
 read -p "请输入 SoC 分支名称（默认：sm8650）: " SOC_BRANCH
@@ -21,6 +25,7 @@ USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
 read -p "是否应用 lz4kd 补丁？(y/n，默认：y): " APPLY_LZ4KD
 APPLY_LZ4KD=${APPLY_LZ4KD:-y}
 
+echo
 echo "===== 配置信息 ====="
 echo "SoC 分支: $SOC_BRANCH"
 echo "manifest: $MANIFEST_FILE"
@@ -28,30 +33,36 @@ echo "后缀: -$CUSTOM_SUFFIX"
 echo "构建目标: $BAZEL_TARGET"
 echo "使用 patch_linux: $USE_PATCH_LINUX"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
-echo "==================="
+echo "===================="
+echo
 
-# ===== 初始化工作目录 =====
-WORKDIR="$HOME/kernel_workspace"
+# ===== 创建工作目录 =====
+WORKDIR="$SCRIPT_DIR/kernel_workspace"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-# ===== 安装依赖 =====
-echo ">>> 正在安装构建依赖..."
+# ===== 安装构建依赖 =====
+echo ">>> 安装构建依赖..."
 sudo apt-get update
 sudo apt-get install -y git curl zip perl make gcc python3
 
-# ===== 安装 repo 工具 =====
-echo ">>> 正在安装 repo 工具..."
-curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
-chmod a+x ~/repo
-sudo mv ~/repo /usr/local/bin/repo
+# ===== 下载 repo 工具到脚本目录 =====
+echo ">>> 下载 repo 工具到当前目录..."
+cd "$SCRIPT_DIR"
+curl -LSs -o repo https://storage.googleapis.com/git-repo-downloads/repo
+chmod +x repo
+echo ">>> repo 安装完成: $SCRIPT_DIR/repo"
+echo
 
 # ===== 初始化仓库 =====
-echo ">>> 正在初始化仓库..."
-repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${SOC_BRANCH} -m ${MANIFEST_FILE} --depth=1
-repo sync -j16 --fail-fast
+cd "$WORKDIR"
+echo ">>> 初始化仓库..."
+"$SCRIPT_DIR/repo" init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${SOC_BRANCH} -m ${MANIFEST_FILE} --depth=1
+echo ">>> repo init 完成"
+"$SCRIPT_DIR/repo" sync -j16 --fail-fast
+echo ">>> repo sync 完成"
 
-cd "$WORKDIR/kernel_platform"
+cd kernel_platform
 
 # ===== 清除 abi 文件、去除 -dirty 后缀 =====
 echo ">>> 正在清除 ABI 文件及去除 dirty 后缀..."
@@ -79,7 +90,7 @@ sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
 # ===== 克隆补丁仓库 =====
 echo ">>> 克隆补丁仓库..."
-cd ../
+cd "$WORKDIR/kernel_platform"
 git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
 git clone https://github.com/Xiaomichael/kernel_patches.git
 git clone https://github.com/ShirkNeko/SukiSU_patch.git
@@ -104,18 +115,20 @@ if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   cp -r ./SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
   cp -r ./SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
   cp ./SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./common/
-  cd ./common
+  cd "$WORKDIR/kernel_platform/common"
   patch -p1 -F 3 < lz4kd.patch || true
-  cd ../
+  cd "$WORKDIR"
 else
   echo ">>> 跳过 LZ4KD 补丁应用"
 fi
 
 # ===== 添加 defconfig 配置项 =====
 echo ">>> 添加 defconfig 配置项..."
-cat >> ./common/arch/arm64/configs/gki_defconfig <<EOF
+DEFCONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+
+# 写入通用 SUSFS/KSU 配置
+cat >> "$DEFCONFIG_FILE" <<EOF
 CONFIG_KSU=y
-CONFIG_KPM=y
 CONFIG_KSU_SUSFS_SUS_SU=n
 CONFIG_KSU_MANUAL_HOOK=y
 CONFIG_KSU_SUSFS=y
@@ -133,12 +146,24 @@ CONFIG_KSU_SUSFS_ENABLE_LOG=y
 CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
 CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
 CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+EOF
+
+# 仅在启用了 patch_linux 时添加 KPM 支持
+if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
+  echo "CONFIG_KPM=y" >> "$DEFCONFIG_FILE"
+fi
+
+# 仅在启用了 LZ4KD 补丁时添加相关算法支持
+if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
+  cat >> "$DEFCONFIG_FILE" <<EOF
 CONFIG_ZSMALLOC=y
 CONFIG_CRYPTO_LZ4HC=y
 CONFIG_CRYPTO_LZ4K=y
 CONFIG_CRYPTO_LZ4KD=y
 CONFIG_CRYPTO_842=y
 EOF
+fi
+
 
 # ===== 禁用 defconfig 检查 =====
 echo ">>> 禁用 defconfig 检查..."
@@ -152,10 +177,11 @@ done
 
 # ===== 编译内核 =====
 echo ">>> 开始编译内核..."
+#cd "$WORKDIR/kernel_platform"
 ./build_with_bazel.py -t "$BAZEL_TARGET" gki
 
 # ===== 选择使用 patch_linux (KPM补丁)=====
-OUT_DIR="./out/msm-kernel-${BAZEL_TARGET}-gki/dist"
+OUT_DIR="./kernel_platform/out/msm-kernel-${BAZEL_TARGET}-gki/dist"
 if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   echo ">>> 使用 patch_linux 工具处理输出..."
   cd "$OUT_DIR"
@@ -165,12 +191,13 @@ if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   rm -f Image
   mv oImage Image
   echo ">>> 已成功打上KPM补丁"
-  cd ../../..  # 返回到 kernel_platform 根目录
+  cd "$WORKDIR/kernel_platform"
 else
   echo ">>> 跳过 patch_linux 操作"
 fi
 
 # ===== 克隆并打包 AnyKernel3 =====
+cd "$WORKDIR"
 echo ">>> 克隆 AnyKernel3 项目..."
 git clone https://github.com/Suxiaoqinx/AnyKernel3 --depth=1
 
@@ -181,7 +208,7 @@ echo ">>> 拷贝内核镜像到 AnyKernel3 目录..."
 cp "$OUT_DIR/Image" ./AnyKernel3/
 
 echo ">>> 进入 AnyKernel3 目录并打包 zip..."
-cd AnyKernel3
+cd "$WORKDIR/AnyKernel3"
 
 # ===== 检查是否启用 lz4kd 和 kpm =====
 ENABLE_LZ4KD=$(grep -o 'CONFIG_CRYPTO_LZ4KD=y' ../common/arch/arm64/configs/gki_defconfig)
