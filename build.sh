@@ -212,8 +212,11 @@ echo ">>> 进入 AnyKernel3 目录并打包 zip..."
 cd "$WORKDIR/AnyKernel3"
 
 # ===== 检查是否启用 lz4kd 和 kpm =====
+cd "$WORKDIR/kernel_platform"
 ENABLE_LZ4KD=$(grep -o 'CONFIG_CRYPTO_LZ4KD=y' ../common/arch/arm64/configs/gki_defconfig)
 ENABLE_KPM=$(grep -o 'CONFIG_KPM=y' ../common/arch/arm64/configs/gki_defconfig)
+
+cd "$WORKDIR/AnyKernel3"
 
 # ===== 如果启用 lz4kd，则下载 zram.zip 并放入当前目录 =====
 if [[ -n "$ENABLE_LZ4KD" ]]; then
