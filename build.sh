@@ -192,15 +192,10 @@ if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   rm -f Image
   mv oImage Image
   echo ">>> 已成功打上KPM补丁"
-  cd "$WORKDIR/kernel_platform"
+  cd ../../..  # 返回到 kernel_platform 根目录
 else
   echo ">>> 跳过 patch_linux 操作"
-  cd "$WORKDIR/kernel_platform"
 fi
-
-# ===== 检查是否启用 lz4kd 和 kpm =====
-ENABLE_LZ4KD=$(grep -o 'CONFIG_CRYPTO_LZ4KD=y' ./common/arch/arm64/configs/gki_defconfig)
-ENABLE_KPM=$(grep -o 'CONFIG_KPM=y' ./common/arch/arm64/configs/gki_defconfig)
 
 # ===== 克隆并打包 AnyKernel3 =====
 cd "$WORKDIR"
@@ -217,7 +212,7 @@ echo ">>> 进入 AnyKernel3 目录并打包 zip..."
 cd "$WORKDIR/AnyKernel3"
 
 # ===== 如果启用 lz4kd，则下载 zram.zip 并放入当前目录 =====
-if [[ -n "$ENABLE_LZ4KD" ]]; then
+if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   echo ">>> 检测到启用了 lz4kd，准备下载 zram.zip..."
   curl -LO https://raw.githubusercontent.com/Suxiaoqinx/kernel_manifest_OnePlus_Sukisu_Ultra/main/zram.zip
   echo ">>> 已下载 zram.zip 并放入打包目录"
@@ -227,11 +222,11 @@ fi
 MANIFEST_BASENAME=$(basename "$MANIFEST_FILE" .xml)
 ZIP_NAME="Anykernel3-${MANIFEST_BASENAME}"
 
-if [[ -n "$ENABLE_LZ4KD" && -n "$ENABLE_KPM" ]]; then
+if [[ "$APPLY_LZ4KD" == "y" || "$USE_PATCH_LINUX" == "y" ]]; then
   ZIP_NAME="${ZIP_NAME}-lz4kd-kpm"
-elif [[ -n "$ENABLE_LZ4KD" ]]; then
+elif [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-lz4kd"
-elif [[ -n "$ENABLE_KPM" ]]; then
+elif [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-kpm"
 fi
 
