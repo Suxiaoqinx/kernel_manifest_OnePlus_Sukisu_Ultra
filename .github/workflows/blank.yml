@@ -450,7 +450,7 @@ jobs:
 
       # 下载 ZRAM算法附加 模块
       - name: Download Latest Zram Module
-        if: ${{ github.event.inputs.SUSFS_CI == 'false' }}
+        if: ${{ github.event.inputs.ZRAM == 'false' }}
         run: |
           curl -LO https://raw.githubusercontent.com/Suxiaoqinx/kernel_manifest_OnePlus_Sukisu_Ultra/main/zram.zip
           cp zram.zip ./AnyKernel3/
