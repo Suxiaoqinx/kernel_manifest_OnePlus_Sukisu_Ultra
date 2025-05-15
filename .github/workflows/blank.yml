@@ -175,6 +175,7 @@ jobs:
           sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
           sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\${{ github.event.inputs.KERNEL_NAME }}"|' common/scripts/setlocalversion
           git add -A
           git commit -m "Force remove -dirty suffix from kernel version"
 
@@ -335,11 +336,6 @@ jobs:
               echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
             fi
           fi
-
-      - name: Kernel name
-        run: |
-          cd kernel_workspace/kernel_platform
-          sed -i '$s|echo "\$res"|echo "\${{ github.event.inputs.KERNEL_NAME }}"|' common/scripts/setlocalversion
 
       - name: Build kernel
         if: ${{ github.event.inputs.CPU == 'sm8650' || github.event.inputs.CPU == 'sm7675' }}
