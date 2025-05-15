@@ -140,6 +140,7 @@ jobs:
           echo "Selected CPUD: ${{ github.event.inputs.CPUD }}"
           echo "Selected ANDROID_VERSION: ${{ github.event.inputs.ANDROID_VERSION }}"
           echo "Selected KERNEL_VERSION: ${{ github.event.inputs.KERNEL_VERSION }}"
+          echo "Selected KERNEL_NAME: ${{ github.event.inputs.KERNEL_NAME }}"
           echo "Selected BUILD_METHOD: ${{ github.event.inputs.BUILD_METHOD }}"
           echo "Selected SUSFS_CI: ${{ github.event.inputs.SUSFS_CI }}"
           echo "Selected ZRAM: ${{ github.event.inputs.ZRAM }}"
@@ -335,12 +336,10 @@ jobs:
             fi
           fi
 
-      - name: 添加自定义名称
+      - name: Kernel name
         run: |
           cd kernel_workspace/kernel_platform
           sed -i '$s|echo "\$res"|echo "\${{ github.event.inputs.KERNEL_NAME }}"|' common/scripts/setlocalversion
-          git add -A
-          git commit -m "Force remove -dirty suffix from kernel version"
 
       - name: Build kernel
         if: ${{ github.event.inputs.CPU == 'sm8650' || github.event.inputs.CPU == 'sm7675' }}
